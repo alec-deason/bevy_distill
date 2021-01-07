@@ -1,0 +1,32 @@
+[package]
+name = "bevy_atelier"
+version = "0.2.0"
+edition = "2018"
+authors = ["Bevy Contributors <bevyengine@gmail.com>", "Carter Anderson <mcanders1@gmail.com>"]
+description = "Provides asset functionality for Bevy Engine"
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT"
+keywords = ["bevy"]
+
+[dependencies]
+# bevy
+bevy_app = { git = "https://github.com/bevyengine/bevy.git", version = "0.4.0" }
+bevy_ecs = { git = "https://github.com/bevyengine/bevy.git", version = "0.4.0" }
+bevy_reflect = { git = "https://github.com/bevyengine/bevy.git", version = "0.4.0", features = ["bevy"] }
+bevy_reflect_derive = { git = "https://github.com/bevyengine/bevy.git", version = "0.4.0" }
+
+# other
+uuid = { version = "0.8", features = ["v4", "serde"] }
+serde = { version = "1", features = ["derive"] }
+crossbeam-channel = "0.4.2"
+anyhow = "1.0"
+thiserror = "1.0"
+log = { version = "0.4", features = ["release_max_level_info"] }
+notify = { version = "5.0.0-pre.2", optional = true }
+parking_lot = "0.10.2"
+atelier-importer = { git = "https://github.com/amethyst/atelier-assets.git", branch = "packfiles"  }
+atelier-daemon = { git = "https://github.com/amethyst/atelier-assets.git", branch = "packfiles"  }
+atelier-loader = { git = "https://github.com/amethyst/atelier-assets.git", branch = "packfiles"  }
+atelier-core = { git = "https://github.com/amethyst/atelier-assets.git", branch = "packfiles"  }
+type-uuid = "0.1.2"
