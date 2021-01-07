@@ -93,7 +93,8 @@ impl Default for AssetServer {
             loader_threads: Default::default(),
             asset_handlers: Default::default(),
             loaders: Default::default(),
-            daemon: AssetDaemon::default(),
+            daemon: AssetDaemon::default()
+                .with_importer("png", crate::image::ImageImporter),
             loader: Loader::new_with_handle_allocator(
                 Box::new(RpcIO::default()),
                 Arc::new(&HANDLE_ALLOCATOR),

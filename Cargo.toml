@@ -18,7 +18,7 @@ bevy_reflect_derive = { git = "https://github.com/bevyengine/bevy.git", version 
 
 # other
 uuid = { version = "0.8", features = ["v4", "serde"] }
-serde = { version = "1", features = ["derive"] }
+serde = { version = "1.0.118", features = ["derive"] }
 crossbeam-channel = "0.4.2"
 anyhow = "1.0"
 thiserror = "1.0"
@@ -28,5 +28,9 @@ parking_lot = "0.10.2"
 atelier-importer = { git = "https://github.com/amethyst/atelier-assets.git", branch = "packfiles"  }
 atelier-daemon = { git = "https://github.com/amethyst/atelier-assets.git", branch = "packfiles"  }
 atelier-loader = { git = "https://github.com/amethyst/atelier-assets.git", branch = "packfiles"  }
-atelier-core = { git = "https://github.com/amethyst/atelier-assets.git", branch = "packfiles"  }
+atelier-core = { git = "https://github.com/amethyst/atelier-assets.git", branch = "packfiles", features = ["type_uuid"] }
 type-uuid = "0.1.2"
+image2 = { version = "0.11.3", features = ["ser"] }
+futures-io = "0.3.8"
+futures-core = "0.3.8"
+futures-util = "0.3.8"

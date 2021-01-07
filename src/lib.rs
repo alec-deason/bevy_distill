@@ -4,6 +4,7 @@ mod assets;
 mod handle;
 mod load_request;
 mod loader;
+pub mod image;
 
 pub use asset_server::*;
 use asset_type_registry::*;
@@ -11,6 +12,7 @@ pub use assets::*;
 pub use handle::*;
 pub use load_request::*;
 pub use loader::*;
+
 
 /// The names of asset stages in an App Schedule
 pub mod stage {

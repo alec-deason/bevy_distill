@@ -1,9 +1,8 @@
 /target
-crates/*/target
+examples/*/target
 **/*.rs.bk
 Cargo.lock
 .cargo/config
 .cargo/config.toml
 /.idea
 /.vscode
-/benches/target
