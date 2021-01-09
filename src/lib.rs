@@ -2,17 +2,17 @@ mod asset_server;
 mod asset_type_registry;
 mod assets;
 mod handle;
+pub mod image;
 mod load_request;
 mod loader;
-pub mod image;
 
+use std::path::PathBuf;
 pub use asset_server::*;
 use asset_type_registry::*;
 pub use assets::*;
 pub use handle::*;
 pub use load_request::*;
 pub use loader::*;
-
 
 /// The names of asset stages in an App Schedule
 pub mod stage {
@@ -35,6 +35,16 @@ pub struct AssetPlugin;
 
 impl Plugin for AssetPlugin {
     fn build(&self, app: &mut AppBuilder) {
+        std::thread::spawn(move || {
+            atelier_daemon::AssetDaemon::default()
+                .with_importer("png", crate::image::ImageImporter)
+                .with_db_path(".assets_db")
+                .with_address("127.0.0.1:9999".parse().unwrap())
+                .with_asset_dirs(vec![PathBuf::from("assets")])
+                .run();
+        });
+        std::thread::sleep(std::time::Duration::from_millis(1000));
+        let mut asset_server = AssetServer::default();
         app.add_stage_before(
             bevy_app::stage::PRE_UPDATE,
             stage::LOAD_ASSETS,
@@ -45,7 +55,7 @@ impl Plugin for AssetPlugin {
             stage::ASSET_EVENTS,
             SystemStage::parallel(),
         )
-        .init_resource::<AssetServer>()
+        .add_resource(asset_server)
         .init_resource::<AssetTypeRegistry>()
         .add_system_to_stage(stage::LOAD_ASSETS, AssetServer::process_system.system());
     }

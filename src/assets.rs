@@ -166,6 +166,8 @@ impl AddAsset for AppBuilder {
     where
         TImporter: BoxedImporter + TypeUuid + FromResources,
     {
+        //TODO
+        /*
         {
             let mut asset_server = self
                 .resources()
@@ -176,6 +178,7 @@ impl AddAsset for AppBuilder {
                 ext,
             );
         }
+        */
         self
     }
 }

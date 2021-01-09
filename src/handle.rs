@@ -8,7 +8,7 @@ use atelier_loader::{
     handle::{AssetHandle, GenericHandle as AtelierHandleUntyped},
     storage::{AtomicHandleAllocator, LoadHandle},
 };
-use bevy_ecs::FromResources;
+use bevy_ecs::{FromResources, Resource};
 
 use bevy_reflect::{
     serde::Serializable, GetTypeRegistration, Reflect, ReflectMut, ReflectRef, TypeRegistration,
@@ -176,6 +176,15 @@ impl<T> FromResources for Handle<T> {
 #[derive(Hash, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 pub struct HandleUntyped {
     pub handle: AtelierHandleUntyped,
+}
+
+impl HandleUntyped {
+    pub fn typed<T: Resource>(mut self) -> Handle<T> {
+        Handle {
+            handle: self.handle,
+            marker: Default::default()
+        }
+    }
 }
 
 impl GetTypeRegistration for HandleUntyped {
