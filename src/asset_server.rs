@@ -1,13 +1,13 @@
 use crate::{
-    AssetLoadError, AssetLoadRequestHandler, AssetTypeId, AssetTypeRegistry, Handle, HandleId,
-    HandleUntyped, LoadRequest, HANDLE_ALLOCATOR,
+    AssetLoadError, AssetLoadRequestHandler, AssetTypeId, AssetTypeRegistry,
+    LoadRequest, HANDLE_ALLOCATOR,
 };
 use anyhow::Result;
 use atelier_importer::BoxedImporter;
 pub use atelier_loader::storage::LoadStatus;
 use atelier_loader::{
     crossbeam_channel::{unbounded, Receiver, Sender},
-    handle::{AssetHandle, RefOp, SerdeContext},
+    handle::{AssetHandle, RefOp, SerdeContext, Handle, GenericHandle},
     rpc_io::RpcIO,
     storage::{AssetLoadOp, DefaultIndirectionResolver, LoadHandle, LoaderInfoProvider, IndirectIdentifier},
     Loader
@@ -60,7 +60,7 @@ struct LoaderThread {
 /// Info about a specific asset, such as its path and its current load state
 #[derive(Debug)]
 pub struct AssetInfo {
-    pub handle_id: HandleId,
+    pub load_handle: LoadHandle,
     pub path: PathBuf,
     pub load_state: LoadStatus,
 }
@@ -110,40 +110,33 @@ impl AssetServer {
         unimplemented!();
     }
 
-    pub fn get_handle<T: Resource, I: Into<HandleId>>(&self, id: I) -> Handle<T> {
-        let id:HandleId = id.into();
-        Handle {
-            handle: atelier_loader::handle::Handle::<T>::new(self.ref_op_tx.clone(), id.0).into(),
-            marker: Default::default()
-        }
+    pub fn get_handle<T: Resource, I: Into<LoadHandle>>(&self, id: I) -> Handle<T> {
+        let id:LoadHandle = id.into();
+        atelier_loader::handle::Handle::<T>::new(self.ref_op_tx.clone(), id).into()
     }
 
-    pub fn get_handle_untyped<I: Into<HandleId>>(&self, id: I) -> HandleUntyped {
-        let id:HandleId = id.into();
-        HandleUntyped {
-            handle: atelier_loader::handle::GenericHandle::new(self.ref_op_tx.clone(), id.0)
-        }
+    pub fn get_handle_untyped<I: Into<LoadHandle>>(&self, id: I) -> GenericHandle {
+        let id:LoadHandle = id.into();
+        atelier_loader::handle::GenericHandle::new(self.ref_op_tx.clone(), id)
     }
 
-    pub fn get_handle_path<H: Into<HandleId>>(&self, handle: H) -> Option<IndirectIdentifier> {
+    pub fn get_handle_path<H: Into<LoadHandle>>(&self, handle: H) -> Option<IndirectIdentifier> {
         unimplemented!();
     }
 
     pub fn load<T: Resource, P: ToString>(&self, path: P) -> Handle<T> {
-        self.load_untyped(IndirectIdentifier::Path(path.to_string())).typed()
+        self.load_untyped(IndirectIdentifier::Path(path.to_string())).into()
     }
 
-    pub fn load_untyped<P: Into<IndirectIdentifier>>(&self, path: P) -> HandleUntyped {
+    pub fn load_untyped<P: Into<IndirectIdentifier>>(&self, path: P) -> GenericHandle {
         let handle = self.loader.add_ref_indirect(path.into());
-        HandleUntyped {
-            handle: atelier_loader::handle::GenericHandle::new(self.ref_op_tx.clone(), handle)
-        }
+        atelier_loader::handle::GenericHandle::new(self.ref_op_tx.clone(), handle)
     }
 
     pub fn load_folder<P: AsRef<Path>>(
         &self,
         path: P,
-    ) -> Result<Vec<HandleUntyped>, AssetServerError> {
+    ) -> Result<Vec<GenericHandle>, AssetServerError> {
         unimplemented!();
     }
 

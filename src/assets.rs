@@ -1,8 +1,12 @@
 use crate::{
     update_asset_storage_system, AssetChannel, AssetLoader, AssetServer, AssetTypeRegistry,
-    ChannelAssetHandler, Handle, HandleId, HandleUntyped,
+    ChannelAssetHandler,
 };
 use atelier_importer::BoxedImporter;
+use atelier_loader::{
+    handle::{Handle, GenericHandle, AssetHandle},
+    storage::LoadHandle,
+};
 use bevy_app::{prelude::Events, AppBuilder};
 use bevy_ecs::{FromResources, IntoSystem, ResMut, Resource};
 use bevy_reflect::prelude::RegisterTypeBuilder;
@@ -28,7 +32,7 @@ struct AssetState<T> {
 }
 /// Stores Assets of a given type and tracks changes to them.
 pub struct Assets<T: Resource> {
-    assets: HashMap<HandleId, AssetState<T>>,
+    assets: HashMap<LoadHandle, AssetState<T>>,
     events: Events<AssetEvent<T>>,
 }
 
@@ -61,7 +65,7 @@ impl<T: Resource> Assets<T> {
     // }
 
     // pub fn add_default(&mut self, asset: T) -> Handle<T> {
-    //     let handle = HandleId::default();
+    //     let handle = LoadHandle::default();
     //     let exists = self.assets.contains_key(&handle);
     //     self.assets.insert(handle, asset);
     //     if exists {
@@ -72,7 +76,7 @@ impl<T: Resource> Assets<T> {
     //     handle
     // }
 
-    pub fn get_with_id(&self, id: HandleId) -> Option<&T> {
+    pub fn get_with_id(&self, id: LoadHandle) -> Option<&T> {
         self.assets
             .get(&id)
             .map(|a| a.committed.as_ref())
@@ -80,7 +84,7 @@ impl<T: Resource> Assets<T> {
             .map(|a| &a.asset)
     }
 
-    pub fn get_id_mut(&mut self, id: HandleId) -> Option<&mut T> {
+    pub fn get_id_mut(&mut self, id: LoadHandle) -> Option<&mut T> {
         // self.events.send(AssetEvent::Modified { handle: *handle });
         self.assets
             .get_mut(&id)
@@ -90,11 +94,11 @@ impl<T: Resource> Assets<T> {
     }
 
     pub fn get(&self, handle: &Handle<T>) -> Option<&T> {
-        self.get_with_id(handle.id())
+        self.get_with_id(handle.load_handle())
     }
 
     pub fn get_mut(&mut self, handle: &Handle<T>) -> Option<&mut T> {
-        self.get_id_mut(handle.id())
+        self.get_id_mut(handle.load_handle())
     }
 
     // pub fn get_or_insert_with(
@@ -154,7 +158,6 @@ impl AddAsset for AppBuilder {
         }
         self.init_resource::<Assets<T>>()
             .register_type::<Handle<T>>()
-            .register_type::<HandleUntyped>()
             .add_system_to_stage(
                 super::stage::ASSET_EVENTS,
                 Assets::<T>::asset_event_system.system(),

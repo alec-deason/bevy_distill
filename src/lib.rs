@@ -1,7 +1,6 @@
 mod asset_server;
 mod asset_type_registry;
 mod assets;
-mod handle;
 pub mod image;
 mod load_request;
 mod loader;
@@ -10,7 +9,6 @@ use std::path::PathBuf;
 pub use asset_server::*;
 use asset_type_registry::*;
 pub use assets::*;
-pub use handle::*;
 pub use load_request::*;
 pub use loader::*;
 
@@ -21,12 +19,16 @@ pub mod stage {
 }
 
 pub mod prelude {
-    pub use crate::{AddAsset, AssetEvent, AssetServer, Assets, Handle, HandleUntyped};
+    pub use crate::{AddAsset, AssetEvent, AssetServer, Assets};
 }
 pub use atelier_core::AssetTypeId;
+use atelier_loader::storage::{AtomicHandleAllocator, LoadHandle};
 
 use bevy_app::{prelude::Plugin, AppBuilder};
 use bevy_ecs::{IntoSystem, SystemStage};
+use bevy_reflect::RegisterTypeBuilder;
+
+pub(crate) static HANDLE_ALLOCATOR: AtomicHandleAllocator = AtomicHandleAllocator::new(2);
 
 /// Adds support for Assets to an App. Assets are typed collections with change tracking, which are added as App Resources.
 /// Examples of assets: textures, sounds, 3d models, maps, scenes
@@ -44,7 +46,7 @@ impl Plugin for AssetPlugin {
                 .run();
         });
         std::thread::sleep(std::time::Duration::from_millis(1000));
-        let mut asset_server = AssetServer::default();
+        let asset_server = AssetServer::default();
         app.add_stage_before(
             bevy_app::stage::PRE_UPDATE,
             stage::LOAD_ASSETS,
@@ -55,6 +57,7 @@ impl Plugin for AssetPlugin {
             stage::ASSET_EVENTS,
             SystemStage::parallel(),
         )
+        .register_type::<LoadHandle>()
         .add_resource(asset_server)
         .init_resource::<AssetTypeRegistry>()
         .add_system_to_stage(stage::LOAD_ASSETS, AssetServer::process_system.system());

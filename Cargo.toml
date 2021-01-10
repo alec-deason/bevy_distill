@@ -25,10 +25,10 @@ thiserror = "1.0"
 log = { version = "0.4", features = ["release_max_level_info"] }
 notify = { version = "5.0.0-pre.2", optional = true }
 parking_lot = "0.10.2"
-atelier-importer = { git = "https://github.com/amethyst/atelier-assets.git", branch = "packfiles"  }
-atelier-daemon = { git = "https://github.com/amethyst/atelier-assets.git", branch = "packfiles"  }
-atelier-loader = { git = "https://github.com/amethyst/atelier-assets.git", branch = "packfiles"  }
-atelier-core = { git = "https://github.com/amethyst/atelier-assets.git", branch = "packfiles", features = ["type_uuid"] }
+atelier-importer = { git = "https://github.com/alec-deason/atelier-assets.git" }
+atelier-daemon = { git = "https://github.com/alec-deason/atelier-assets.git" }
+atelier-loader = { git = "https://github.com/alec-deason/atelier-assets.git", features = ["bevy_reflect_impls"], branch = "bevy_reflect" }
+atelier-core = { git = "https://github.com/alec-deason/atelier-assets.git", features = ["type_uuid"] }
 type-uuid = "0.1.2"
 image2 = { version = "0.11.3", features = ["ser"] }
 futures-io = "0.3.8"

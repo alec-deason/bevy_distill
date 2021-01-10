@@ -1,4 +1,5 @@
-use crate::{AssetServer, AssetVersion, Assets, HandleId};
+use crate::{AssetServer, AssetVersion, Assets};
+use atelier_loader::storage::LoadHandle;
 use anyhow::Result;
 use bevy_ecs::{Res, ResMut, Resource};
 use crossbeam_channel::{Receiver, Sender};
@@ -35,7 +36,7 @@ pub trait AssetLoader<T>: Send + Sync + 'static {
 /// The result of loading an asset of type `T`
 pub struct AssetResult<T: 'static> {
     pub result: Result<T, AssetLoadError>,
-    pub handle: HandleId,
+    pub handle: LoadHandle,
     pub path: PathBuf,
     pub version: AssetVersion,
 }

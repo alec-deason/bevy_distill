@@ -1,4 +1,8 @@
-use crate::{AssetLoadError, AssetLoader, AssetResult, AssetVersion, Handle, HandleId};
+use crate::{AssetLoadError, AssetLoader, AssetResult, AssetVersion};
+use atelier_loader::{
+    storage::LoadHandle,
+    handle::Handle,
+};
 use anyhow::Result;
 use crossbeam_channel::Sender;
 use fs::File;
@@ -9,7 +13,7 @@ use std::{fs, io, path::PathBuf};
 #[derive(Debug)]
 pub struct LoadRequest {
     pub path: PathBuf,
-    pub handle_id: HandleId,
+    pub load_handle: LoadHandle,
     pub handler_index: usize,
     pub version: AssetVersion,
 }
@@ -61,7 +65,7 @@ where
     fn handle_request(&self, load_request: &LoadRequest) {
         let result = self.load_asset(load_request);
         let asset_result = AssetResult {
-            handle: load_request.handle_id,
+            handle: load_request.load_handle,
             result,
             path: load_request.path.clone(),
             version: load_request.version,

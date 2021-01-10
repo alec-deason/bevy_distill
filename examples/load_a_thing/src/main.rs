@@ -1,12 +1,17 @@
-use bevy::prelude::*;
+use bevy::{
+    prelude::*,
+    reflect::ReflectPlugin,
+};
 use bevy_atelier::{
     image::Image,
-    AssetServer, Assets, Handle, AddAsset
+    AssetServer, Assets, AddAsset
 };
+use atelier_loader::handle::Handle;
 use bevy_atelier::AssetPlugin;
 
 fn main() {
     App::build()
+    .add_plugin(ReflectPlugin)
     .add_plugin(AssetPlugin)
     .add_asset::<bevy_atelier::image::Image>()
     .add_startup_system(load_the_thing.system())
