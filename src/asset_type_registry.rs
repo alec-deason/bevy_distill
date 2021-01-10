@@ -3,6 +3,7 @@ use bevy_ecs::{Resource, Resources};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use type_uuid::TypeUuid;
+use serde::de::DeserializeOwned;
 
 pub(crate) struct AssetRegistration {
     pub ty: AssetTypeId,
@@ -14,7 +15,7 @@ pub(crate) struct AssetRegistration {
 }
 
 impl AssetRegistration {
-    pub fn of<T: TypeUuid + Resource>() -> Self {
+    pub fn of<T: TypeUuid + Resource + DeserializeOwned>() -> Self {
         Self {
             ty: AssetTypeId(<T as TypeUuid>::UUID),
             get_assets_storage_fn: |resources, cb| {
@@ -34,7 +35,7 @@ pub(crate) struct AssetTypeRegistry {
 }
 
 impl AssetTypeRegistry {
-    pub fn register<T: Resource + TypeUuid>(&mut self) {
+    pub fn register<T: Resource + TypeUuid + DeserializeOwned>(&mut self) {
         self.registrations.insert(
             AssetTypeId(<T as TypeUuid>::UUID),
             AssetRegistration::of::<T>(),

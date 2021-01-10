@@ -5,15 +5,17 @@ use crate::{
 use atelier_importer::BoxedImporter;
 use atelier_loader::{
     handle::{Handle, GenericHandle, AssetHandle},
-    storage::LoadHandle,
+    storage::{LoadHandle, IndirectionTable},
 };
 use bevy_app::{prelude::Events, AppBuilder};
-use bevy_ecs::{FromResources, IntoSystem, ResMut, Resource};
+use bevy_ecs::{FromResources, IntoSystem, ResMut, Resource, Resources};
+use bevy_log::*;
 use bevy_reflect::prelude::RegisterTypeBuilder;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::error::Error;
 use type_uuid::TypeUuid;
+use serde::de::DeserializeOwned;
 
 /// Events that happen on assets of type `T`
 pub enum AssetEvent<T: Resource> {
@@ -34,97 +36,39 @@ struct AssetState<T> {
 pub struct Assets<T: Resource> {
     assets: HashMap<LoadHandle, AssetState<T>>,
     events: Events<AssetEvent<T>>,
+    indirection_table: IndirectionTable,
 }
 
-impl<T: Resource> Default for Assets<T> {
-    fn default() -> Self {
+impl<T: Resource> FromResources for Assets<T> {
+    fn from_resources(resources: &Resources) -> Self {
+        let asset_server = resources.get::<AssetServer>().unwrap();
         Assets {
             assets: HashMap::default(),
             events: Events::default(),
+            indirection_table: asset_server.loader.indirection_table(),
         }
     }
 }
 
 impl<T: Resource> Assets<T> {
-    // pub fn add(&mut self, asset: T) -> Handle<T> {
-    //     let handle = Handle::new();
-    //     self.assets.insert(handle, asset);
-    //     self.events.send(AssetEvent::Created { handle });
-    //     handle
-    // }
-
-    // pub fn set(&mut self, handle: Handle<T>, asset: T) {
-    //     let exists = self.assets.contains_key(handle.id());
-    //     self.assets.insert(handle, asset);
-
-    //     if exists {
-    //         self.events.send(AssetEvent::Modified { handle });
-    //     } else {
-    //         self.events.send(AssetEvent::Created { handle });
-    //     }
-    // }
-
-    // pub fn add_default(&mut self, asset: T) -> Handle<T> {
-    //     let handle = LoadHandle::default();
-    //     let exists = self.assets.contains_key(&handle);
-    //     self.assets.insert(handle, asset);
-    //     if exists {
-    //         self.events.send(AssetEvent::Modified { handle });
-    //     } else {
-    //         self.events.send(AssetEvent::Created { handle });
-    //     }
-    //     handle
-    // }
-
-    pub fn get_with_id(&self, id: LoadHandle) -> Option<&T> {
-        self.assets
-            .get(&id)
-            .map(|a| a.committed.as_ref())
-            .unwrap_or(None)
-            .map(|a| &a.asset)
-    }
-
-    pub fn get_id_mut(&mut self, id: LoadHandle) -> Option<&mut T> {
-        // self.events.send(AssetEvent::Modified { handle: *handle });
-        self.assets
-            .get_mut(&id)
-            .map(|a| a.committed.as_mut())
-            .unwrap_or(None)
-            .map(|a| &mut a.asset)
-    }
-
     pub fn get(&self, handle: &Handle<T>) -> Option<&T> {
-        self.get_with_id(handle.load_handle())
+        let handle = handle.load_handle();
+		let handle = if handle.is_indirect() {
+             if let Some(handle) = self.indirection_table.resolve(handle) {
+                 handle
+             } else {
+                 return None;
+             }
+         } else {
+             handle
+         };
+         let asset = self.assets.get(&handle);
+         if let Some(AssetState { committed: Some(asset_version), .. }) = asset {
+            Some(&asset_version.asset)
+         } else {
+             None
+         }
     }
-
-    pub fn get_mut(&mut self, handle: &Handle<T>) -> Option<&mut T> {
-        self.get_id_mut(handle.load_handle())
-    }
-
-    // pub fn get_or_insert_with(
-    //     &mut self,
-    //     handle: Handle<T>,
-    //     insert_fn: impl FnOnce() -> T,
-    // ) -> &mut T {
-    //     let mut event = None;
-    //     let borrowed = self.assets.entry(handle.id()).or_insert_with(|| {
-    //         event = Some(AssetEvent::Created { handle });
-    //         insert_fn()
-    //     });
-
-    //     if let Some(event) = event {
-    //         self.events.send(event);
-    //     }
-    //     borrowed
-    // }
-
-    // pub fn iter(&self) -> impl Iterator<Item = (&Handle<T>, &T)> {
-    //     self.assets.iter().map(|(k, v)| (k, v))
-    // }
-
-    // pub fn remove(&mut self, handle: &Handle<T>) -> Option<T> {
-    //     self.assets.remove(&handle.id())
-    // }
 
     pub fn asset_event_system(
         mut events: ResMut<Events<AssetEvent<T>>>,
@@ -138,7 +82,7 @@ impl<T: Resource> Assets<T> {
 pub trait AddAsset {
     fn add_asset<T>(&mut self) -> &mut Self
     where
-        T: Resource + TypeUuid;
+        T: Resource + TypeUuid + DeserializeOwned;
     fn add_importer<TImporter, EXT: AsRef<str>>(&mut self, ext: EXT) -> &mut Self
     where
         TImporter: BoxedImporter + TypeUuid + FromResources;
@@ -147,7 +91,7 @@ pub trait AddAsset {
 impl AddAsset for AppBuilder {
     fn add_asset<T>(&mut self) -> &mut Self
     where
-        T: Resource + TypeUuid,
+        T: Resource + TypeUuid + DeserializeOwned,
     {
         {
             let mut asset_type_registry = self
@@ -187,7 +131,8 @@ impl AddAsset for AppBuilder {
 }
 
 pub(crate) struct AssetsRefCell<'a, T: Resource>(pub RefCell<&'a mut Assets<T>>);
-impl<'a, T: Resource> atelier_loader::storage::AssetStorage for AssetsRefCell<'a, T> {
+
+impl<'a, T: Resource + DeserializeOwned> atelier_loader::storage::AssetStorage for AssetsRefCell<'a, T> {
     fn update_asset(
         &self,
         loader_info: &dyn atelier_loader::storage::LoaderInfoProvider,
@@ -197,7 +142,21 @@ impl<'a, T: Resource> atelier_loader::storage::AssetStorage for AssetsRefCell<'a
         load_op: atelier_loader::storage::AssetLoadOp,
         version: u32,
     ) -> Result<(), Box<dyn Error + Send + 'static>> {
-        todo!()
+        let mut assets = self.0.borrow_mut();
+        assets.assets.insert(
+            load_handle,
+            AssetState {
+                uncommitted: Some(AssetVersion {
+                    asset: bincode::deserialize::<T>(&data).expect("failed to deserialize asset"),
+                    version,
+                }),
+                committed: None
+            });
+        info!("{} bytes loaded for {:?}", data.len(), load_handle);
+        // The loading process could be async, in which case you can delay
+        // calling `load_op.complete` as it should only be done when the asset is usable.
+        load_op.complete();
+        Ok(())
     }
     fn commit_asset_version(
         &self,
@@ -205,7 +164,11 @@ impl<'a, T: Resource> atelier_loader::storage::AssetStorage for AssetsRefCell<'a
         load_handle: atelier_loader::LoadHandle,
         version: u32,
     ) {
-        todo!()
+        let mut assets = self.0.borrow_mut();
+        let state = assets.assets.get_mut(&load_handle).expect("asset not present when committing");
+        let uncommitted = state.uncommitted.take().expect("Committing asset without an uncommited state");
+        state.committed = Some(uncommitted);
+        println!("Commit {:?}", load_handle);
     }
     fn free(
         &self,
@@ -213,6 +176,22 @@ impl<'a, T: Resource> atelier_loader::storage::AssetStorage for AssetsRefCell<'a
         load_handle: atelier_loader::LoadHandle,
         version: u32,
     ) {
-        todo!()
+        let mut assets = self.0.borrow_mut();
+        if let Some(asset) = assets.assets.get_mut(&load_handle) {
+            if let Some(uncommitted) = &mut asset.uncommitted {
+                if uncommitted.version == version {
+                    asset.uncommitted = None;
+                }
+            }
+            if let Some(committed) = &mut asset.committed {
+                if committed.version == version {
+                    asset.committed = None;
+                }
+            }
+            if asset.uncommitted.is_none() && asset.committed.is_none() {
+                assets.assets.remove(&load_handle);
+            }
+        }
+        info!("Free {:?}", load_handle);
     }
 }

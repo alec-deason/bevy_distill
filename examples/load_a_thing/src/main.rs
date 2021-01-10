@@ -1,6 +1,8 @@
 use bevy::{
     prelude::*,
+    app::{ScheduleRunnerSettings, AppExit},
     reflect::ReflectPlugin,
+    utils::Duration,
 };
 use bevy_atelier::{
     image::Image,
@@ -11,7 +13,15 @@ use bevy_atelier::AssetPlugin;
 
 fn main() {
     App::build()
-    .add_plugin(ReflectPlugin)
+    //.add_plugin(ReflectPlugin)
+    .add_plugins(MinimalPlugins)
+    .add_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f64(
+         1.0 / 60.0,
+    )))
+    .add_resource(bevy::log::LogSettings {
+        level: bevy::log::Level::INFO,
+        ..Default::default()
+    })
     .add_plugin(AssetPlugin)
     .add_asset::<bevy_atelier::image::Image>()
     .add_startup_system(load_the_thing.system())
@@ -34,6 +44,10 @@ fn load_the_thing(
 fn use_the_thing(
     thing_handle: Res<ThingHandle>,
     images: Res<Assets<Image>>,
+    mut app_exit: ResMut<Events<AppExit>>,
 ) {
-    println!("Is the image there? {}", images.get(&thing_handle.0).is_some());
+    if let Some(image) = images.get(&thing_handle.0) {
+        println!("Asset found!");
+        app_exit.send(AppExit);
+    }
 }

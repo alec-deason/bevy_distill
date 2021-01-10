@@ -13,6 +13,7 @@ use atelier_loader::{
     Loader
 };
 use bevy_ecs::{Res, Resource, Resources};
+use bevy_log::*;
 use crossbeam_channel::TryRecvError;
 use parking_lot::RwLock;
 use std::{
@@ -77,7 +78,7 @@ pub struct AssetServer {
     asset_handlers: Arc<RwLock<Vec<Box<dyn AssetLoadRequestHandler>>>>,
     // TODO: this is a hack to enable retrieving generic AssetLoader<T>s. there must be a better way!
     loaders: Vec<Resources>,
-    loader: Loader,
+    pub(crate) loader: Loader,
     ref_op_tx: Sender<RefOp>,
     ref_op_rx: Receiver<RefOp>,
 }
@@ -130,6 +131,7 @@ impl AssetServer {
 
     pub fn load_untyped<P: Into<IndirectIdentifier>>(&self, path: P) -> GenericHandle {
         let handle = self.loader.add_ref_indirect(path.into());
+        println!("loading: {:?}", handle);
         atelier_loader::handle::GenericHandle::new(self.ref_op_tx.clone(), handle)
     }
 
@@ -193,7 +195,7 @@ impl<'a, 'b> atelier_loader::storage::AssetStorage for AssetStorageResolver<'a, 
             );
             result.unwrap()
         } else {
-            log::error!(
+            error!(
                 "Loaded asset type ID {:?} but it was not registered",
                 asset_type_id
             );
@@ -216,7 +218,7 @@ impl<'a, 'b> atelier_loader::storage::AssetStorage for AssetStorageResolver<'a, 
                 },
             );
         } else {
-            log::error!(
+            error!(
                 "Loaded asset type ID {:?} but it was not registered",
                 asset_type_id
             );
@@ -236,7 +238,7 @@ impl<'a, 'b> atelier_loader::storage::AssetStorage for AssetStorageResolver<'a, 
                 },
             );
         } else {
-            log::error!(
+            error!(
                 "Loaded asset type ID {:?} but it was not registered",
                 asset_type_id
             );
