@@ -6,27 +6,33 @@ use bevy::{
 };
 use bevy_atelier::{
     image::Image,
-    AssetServer, Assets, AddAsset
+    AssetServer, Assets, AddAsset, AssetServerSettings
 };
 use atelier_loader::handle::Handle;
 use bevy_atelier::AssetPlugin;
 
 fn main() {
-    App::build()
-    //.add_plugin(ReflectPlugin)
-    .add_plugins(MinimalPlugins)
-    .add_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f64(
-         1.0 / 60.0,
-    )))
-    .add_resource(bevy::log::LogSettings {
-        level: bevy::log::Level::INFO,
-        ..Default::default()
-    })
-    .add_plugin(AssetPlugin)
-    .add_asset::<bevy_atelier::image::Image>()
-    .add_startup_system(load_the_thing.system())
-    .add_system(use_the_thing.system())
-    .run();
+    let mut app = App::build();
+    app
+        // Try creating a packfile using atelier-cli and uncommenting this line
+        // .add_resource(AssetServerSettings::default_packfile())
+        .add_plugins(MinimalPlugins)
+        .add_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f64(
+             1.0 / 60.0,
+        )))
+        .add_resource(bevy::log::LogSettings {
+            level: bevy::log::Level::INFO,
+            ..Default::default()
+        })
+        .add_plugin(AssetPlugin)
+        .add_asset::<bevy_atelier::image::Image>()
+        .add_startup_system(load_the_thing.system())
+        .add_system(use_the_thing.system());
+    if cfg!(feature = "atelier-daemon-headless") {
+        loop {}
+    } else {
+        app.run();
+    }
 }
 
 

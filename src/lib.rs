@@ -35,31 +35,25 @@ pub(crate) static HANDLE_ALLOCATOR: AtomicHandleAllocator = AtomicHandleAllocato
 #[derive(Default)]
 pub struct AssetPlugin;
 
+
 impl Plugin for AssetPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        std::thread::spawn(move || {
-            atelier_daemon::AssetDaemon::default()
-                .with_importer("png", crate::image::ImageImporter)
-                .with_db_path(".assets_db")
-                .with_address("127.0.0.1:9999".parse().unwrap())
-                .with_asset_dirs(vec![PathBuf::from("assets")])
-                .run();
-        });
-        std::thread::sleep(std::time::Duration::from_millis(1000));
-        let asset_server = AssetServer::default();
-        app.add_stage_before(
-            bevy_app::stage::PRE_UPDATE,
-            stage::LOAD_ASSETS,
-            SystemStage::parallel(),
-        )
-        .add_stage_after(
-            bevy_app::stage::POST_UPDATE,
-            stage::ASSET_EVENTS,
-            SystemStage::parallel(),
-        )
-        .register_type::<LoadHandle>()
-        .add_resource(asset_server)
-        .init_resource::<AssetTypeRegistry>()
-        .add_system_to_stage(stage::LOAD_ASSETS, AssetServer::process_system.system());
+        let settings = app.app.resources.get::<AssetServerSettings>().map(|s| (*s).clone()).unwrap_or_default();
+        let asset_server = AssetServer::new(&settings).unwrap();
+        app
+            .register_type::<LoadHandle>()
+            .init_resource::<AssetTypeRegistry>()
+            .add_resource(asset_server)
+            .add_stage_before(
+                bevy_app::stage::PRE_UPDATE,
+                stage::LOAD_ASSETS,
+                SystemStage::parallel(),
+            )
+            .add_stage_after(
+                bevy_app::stage::POST_UPDATE,
+                stage::ASSET_EVENTS,
+                SystemStage::parallel(),
+            )
+            .add_system_to_stage(stage::LOAD_ASSETS, AssetServer::process_system.system());
     }
 }

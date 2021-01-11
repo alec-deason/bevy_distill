@@ -9,6 +9,7 @@ use atelier_loader::{
     crossbeam_channel::{unbounded, Receiver, Sender},
     handle::{AssetHandle, RefOp, SerdeContext, Handle, GenericHandle},
     rpc_io::RpcIO,
+    packfile_io::PackfileReader,
     storage::{AssetLoadOp, DefaultIndirectionResolver, LoadHandle, LoaderInfoProvider, IndirectIdentifier},
     Loader
 };
@@ -70,6 +71,30 @@ enum DaemonState {
     Building(),
 }
 
+#[derive(Clone)]
+pub enum AssetServerSettings {
+    Directory(String),
+    Packfile(String),
+}
+impl AssetServerSettings {
+    pub fn default_directory() -> Self {
+        AssetServerSettings::Directory("assets".to_string())
+    }
+
+    pub fn default_packfile() -> Self {
+        AssetServerSettings::Packfile("assets.pack".to_string())
+    }
+}
+impl Default for AssetServerSettings {
+    fn default() -> Self {
+        if cfg!(feature = "assets-daemon") {
+            Self::default_directory()
+        } else {
+            Self::default_packfile()
+        }
+    }
+}
+
 /// Loads assets from the filesystem on background threads
 pub struct AssetServer {
     asset_folders: RwLock<Vec<PathBuf>>,
@@ -83,26 +108,51 @@ pub struct AssetServer {
     ref_op_rx: Receiver<RefOp>,
 }
 
-impl Default for AssetServer {
-    fn default() -> Self {
+impl AssetServer {
+    pub fn new(settings: &AssetServerSettings) -> Result<Self> {
+        let loader = match settings {
+            #[cfg(feature = "assets-daemon")]
+            AssetServerSettings::Directory(path) => {
+                let path = path.clone();
+                std::thread::spawn(move || {
+                    atelier_daemon::AssetDaemon::default()
+                        .with_importer("png", crate::image::ImageImporter)
+                        .with_db_path(".assets_db")
+                        .with_address("127.0.0.1:9999".parse().unwrap())
+                        .with_asset_dirs(vec![PathBuf::from(path)])
+                        .run();
+                });
+                Loader::new_with_handle_allocator(
+                    Box::new(RpcIO::default()),
+                    Arc::new(&HANDLE_ALLOCATOR),
+                )
+            }
+            #[cfg(not(feature = "assets-daemon"))]
+            AssetServerSettings::Directory(path) => {
+                anyhow::bail!("asset-daemon is required in order to load assets from a directory");
+            },
+            AssetServerSettings::Packfile(path) => {
+                println!("packfile: {:?}", path);
+                Loader::new_with_handle_allocator(
+                    Box::new(PackfileReader::new(std::fs::File::open(path)?).unwrap()),
+                    Arc::new(&HANDLE_ALLOCATOR),
+                )
+            }
+        };
+
         let (tx, rx) = unbounded();
-        AssetServer {
+        Ok(AssetServer {
             max_loader_threads: 4,
             asset_folders: Default::default(),
             loader_threads: Default::default(),
             asset_handlers: Default::default(),
             loaders: Default::default(),
-            loader: Loader::new_with_handle_allocator(
-                Box::new(RpcIO::default()),
-                Arc::new(&HANDLE_ALLOCATOR),
-            ),
+            loader,
             ref_op_tx: tx,
             ref_op_rx: rx,
-        }
+        })
     }
-}
 
-impl AssetServer {
     pub(crate) fn ref_op_tx(&self) -> Sender<RefOp> {
         self.ref_op_tx.clone()
     }
