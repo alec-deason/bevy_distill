@@ -28,13 +28,10 @@ struct AssetVersion<T> {
     asset: T,
     version: u32,
 }
-struct AssetState<T> {
-    uncommitted: Option<AssetVersion<T>>,
-    committed: Option<AssetVersion<T>>,
-}
 /// Stores Assets of a given type and tracks changes to them.
 pub struct Assets<T: Resource> {
-    assets: HashMap<LoadHandle, AssetState<T>>,
+    uncommitted: HashMap<LoadHandle, AssetVersion<T>>,
+    committed: HashMap<LoadHandle, AssetVersion<T>>,
     events: Events<AssetEvent<T>>,
     indirection_table: IndirectionTable,
 }
@@ -43,7 +40,8 @@ impl<T: Resource> FromResources for Assets<T> {
     fn from_resources(resources: &Resources) -> Self {
         let asset_server = resources.get::<AssetServer>().unwrap();
         Assets {
-            assets: HashMap::default(),
+            uncommitted: HashMap::default(),
+            committed: HashMap::default(),
             events: Events::default(),
             indirection_table: asset_server.loader.indirection_table(),
         }
@@ -62,8 +60,8 @@ impl<T: Resource> Assets<T> {
          } else {
              handle
          };
-         let asset = self.assets.get(&handle);
-         if let Some(AssetState { committed: Some(asset_version), .. }) = asset {
+         let asset = self.committed.get(&handle);
+         if let Some(asset_version) = asset {
             Some(&asset_version.asset)
          } else {
              None
@@ -143,15 +141,13 @@ impl<'a, T: Resource + DeserializeOwned> atelier_loader::storage::AssetStorage f
         version: u32,
     ) -> Result<(), Box<dyn Error + Send + 'static>> {
         let mut assets = self.0.borrow_mut();
-        assets.assets.insert(
+        assets.uncommitted.insert(
             load_handle,
-            AssetState {
-                uncommitted: Some(AssetVersion {
-                    asset: bincode::deserialize::<T>(&data).expect("failed to deserialize asset"),
-                    version,
-                }),
-                committed: None
-            });
+            AssetVersion {
+                asset: bincode::deserialize::<T>(&data).expect("failed to deserialize asset"),
+                version,
+            }
+        );
         info!("{} bytes loaded for {:?}", data.len(), load_handle);
         // The loading process could be async, in which case you can delay
         // calling `load_op.complete` as it should only be done when the asset is usable.
@@ -165,10 +161,8 @@ impl<'a, T: Resource + DeserializeOwned> atelier_loader::storage::AssetStorage f
         version: u32,
     ) {
         let mut assets = self.0.borrow_mut();
-        let state = assets.assets.get_mut(&load_handle).expect("asset not present when committing");
-        let uncommitted = state.uncommitted.take().expect("Committing asset without an uncommited state");
-        state.committed = Some(uncommitted);
-        println!("Commit {:?}", load_handle);
+        let uncommitted = assets.uncommitted.remove(&load_handle).expect("asset not present when committing");
+        assets.committed.insert(load_handle, uncommitted);
     }
     fn free(
         &self,
@@ -177,19 +171,14 @@ impl<'a, T: Resource + DeserializeOwned> atelier_loader::storage::AssetStorage f
         version: u32,
     ) {
         let mut assets = self.0.borrow_mut();
-        if let Some(asset) = assets.assets.get_mut(&load_handle) {
-            if let Some(uncommitted) = &mut asset.uncommitted {
-                if uncommitted.version == version {
-                    asset.uncommitted = None;
-                }
+        if let Some(asset_version) = assets.uncommitted.get(&load_handle) {
+            if asset_version.version == version {
+                assets.uncommitted.remove(&load_handle);
             }
-            if let Some(committed) = &mut asset.committed {
-                if committed.version == version {
-                    asset.committed = None;
-                }
-            }
-            if asset.uncommitted.is_none() && asset.committed.is_none() {
-                assets.assets.remove(&load_handle);
+        }
+        if let Some(asset_version) = assets.committed.get(&load_handle) {
+            if asset_version.version == version {
+                assets.committed.remove(&load_handle);
             }
         }
         info!("Free {:?}", load_handle);
