@@ -1,17 +1,19 @@
 use crate::{
-    AssetLoadError, AssetLoadRequestHandler, AssetTypeId, AssetTypeRegistry,
-    LoadRequest, HANDLE_ALLOCATOR,
+    AssetLoadError, AssetLoadRequestHandler, AssetTypeId, AssetTypeRegistry, LoadRequest,
+    HANDLE_ALLOCATOR,
 };
 use anyhow::Result;
 use atelier_importer::BoxedImporter;
 pub use atelier_loader::storage::LoadStatus;
 use atelier_loader::{
     crossbeam_channel::{unbounded, Receiver, Sender},
-    handle::{AssetHandle, RefOp, SerdeContext, Handle, GenericHandle},
-    rpc_io::RpcIO,
+    handle::{AssetHandle, GenericHandle, Handle, RefOp, SerdeContext},
     packfile_io::PackfileReader,
-    storage::{AssetLoadOp, DefaultIndirectionResolver, LoadHandle, LoaderInfoProvider, IndirectIdentifier},
-    Loader
+    rpc_io::RpcIO,
+    storage::{
+        AssetLoadOp, DefaultIndirectionResolver, IndirectIdentifier, LoadHandle, LoaderInfoProvider,
+    },
+    Loader,
 };
 use bevy_ecs::{Res, Resource, Resources};
 use bevy_log::*;
@@ -130,7 +132,7 @@ impl AssetServer {
             #[cfg(not(feature = "assets-daemon"))]
             AssetServerSettings::Directory(path) => {
                 anyhow::bail!("asset-daemon is required in order to load assets from a directory");
-            },
+            }
             AssetServerSettings::Packfile(path) => {
                 println!("packfile: {:?}", path);
                 Loader::new_with_handle_allocator(
@@ -158,12 +160,12 @@ impl AssetServer {
     }
 
     pub fn get_handle<T: Resource, I: Into<LoadHandle>>(&self, id: I) -> Handle<T> {
-        let id:LoadHandle = id.into();
+        let id: LoadHandle = id.into();
         atelier_loader::handle::Handle::<T>::new(self.ref_op_tx.clone(), id).into()
     }
 
     pub fn get_handle_untyped<I: Into<LoadHandle>>(&self, id: I) -> GenericHandle {
-        let id:LoadHandle = id.into();
+        let id: LoadHandle = id.into();
         atelier_loader::handle::GenericHandle::new(self.ref_op_tx.clone(), id)
     }
 
@@ -172,7 +174,8 @@ impl AssetServer {
     }
 
     pub fn load<T: Resource, P: ToString>(&self, path: P) -> Handle<T> {
-        self.load_untyped(IndirectIdentifier::Path(path.to_string())).into()
+        self.load_untyped(IndirectIdentifier::Path(path.to_string()))
+            .into()
     }
 
     pub fn load_untyped<P: Into<IndirectIdentifier>>(&self, path: P) -> GenericHandle {
@@ -186,11 +189,6 @@ impl AssetServer {
     ) -> Result<Vec<GenericHandle>, AssetServerError> {
         unimplemented!("Waiting on the ability to load directories in atelier");
     }
-
-    pub fn free_unused_assets(&self) {
-        unimplemented!();
-    }
-
 
     pub fn process_system(_world: &mut bevy_ecs::World, resources: &mut Resources) {
         let mut asset_server = resources

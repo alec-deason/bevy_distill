@@ -1,9 +1,9 @@
 use crate::{AssetTypeId, Assets, AssetsRefCell};
 use bevy_ecs::{Resource, Resources};
+use serde::de::DeserializeOwned;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use type_uuid::TypeUuid;
-use serde::de::DeserializeOwned;
 
 pub(crate) struct AssetRegistration {
     pub ty: AssetTypeId,

@@ -1,9 +1,6 @@
 use crate::{AssetLoadError, AssetLoader, AssetResult, AssetVersion};
-use atelier_loader::{
-    storage::LoadHandle,
-    handle::Handle,
-};
 use anyhow::Result;
+use atelier_loader::{handle::Handle, storage::LoadHandle};
 use crossbeam_channel::Sender;
 use fs::File;
 use io::Read;

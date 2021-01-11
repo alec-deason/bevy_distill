@@ -5,12 +5,12 @@ pub mod image;
 mod load_request;
 mod loader;
 
-use std::path::PathBuf;
 pub use asset_server::*;
 use asset_type_registry::*;
 pub use assets::*;
 pub use load_request::*;
 pub use loader::*;
+use std::path::PathBuf;
 
 /// The names of asset stages in an App Schedule
 pub mod stage {
@@ -35,13 +35,16 @@ pub(crate) static HANDLE_ALLOCATOR: AtomicHandleAllocator = AtomicHandleAllocato
 #[derive(Default)]
 pub struct AssetPlugin;
 
-
 impl Plugin for AssetPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        let settings = app.app.resources.get::<AssetServerSettings>().map(|s| (*s).clone()).unwrap_or_default();
+        let settings = app
+            .app
+            .resources
+            .get::<AssetServerSettings>()
+            .map(|s| (*s).clone())
+            .unwrap_or_default();
         let asset_server = AssetServer::new(&settings).unwrap();
-        app
-            .register_type::<LoadHandle>()
+        app.register_type::<LoadHandle>()
             .init_resource::<AssetTypeRegistry>()
             .add_resource(asset_server)
             .add_stage_before(

@@ -1,15 +1,12 @@
+use atelier_loader::handle::Handle;
 use bevy::{
+    app::{AppExit, ScheduleRunnerSettings},
     prelude::*,
-    app::{ScheduleRunnerSettings, AppExit},
     reflect::ReflectPlugin,
     utils::Duration,
 };
-use bevy_atelier::{
-    image::Image,
-    AssetServer, Assets, AddAsset, AssetServerSettings
-};
-use atelier_loader::handle::Handle;
 use bevy_atelier::AssetPlugin;
+use bevy_atelier::{image::Image, AddAsset, AssetServer, AssetServerSettings, Assets};
 
 fn main() {
     let mut app = App::build();
@@ -18,7 +15,7 @@ fn main() {
         // .add_resource(AssetServerSettings::default_packfile())
         .add_plugins(MinimalPlugins)
         .add_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f64(
-             1.0 / 60.0,
+            1.0 / 60.0,
         )))
         .add_resource(bevy::log::LogSettings {
             level: bevy::log::Level::INFO,
@@ -35,14 +32,10 @@ fn main() {
     }
 }
 
-
 struct ThingHandle(Handle<Image>);
-fn load_the_thing(
-    commands: &mut Commands,
-    asset_server: ResMut<AssetServer>,
-) {
+fn load_the_thing(commands: &mut Commands, asset_server: ResMut<AssetServer>) {
     std::thread::sleep(std::time::Duration::from_millis(100));
-    let handle:Handle<Image> = asset_server.load("bevy_logo.png");
+    let handle: Handle<Image> = asset_server.load("bevy_logo.png");
     println!("{:?}", handle);
     commands.insert_resource(ThingHandle(handle));
 }

@@ -1,6 +1,6 @@
 use crate::{AssetServer, AssetVersion, Assets};
-use atelier_loader::storage::LoadHandle;
 use anyhow::Result;
+use atelier_loader::storage::LoadHandle;
 use bevy_ecs::{Res, ResMut, Resource};
 use crossbeam_channel::{Receiver, Sender};
 use fs::File;
