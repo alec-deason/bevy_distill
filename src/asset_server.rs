@@ -157,10 +157,6 @@ impl AssetServer {
         self.ref_op_tx.clone()
     }
 
-    pub fn watch_for_changes(&self) -> Result<(), AssetServerError> {
-        unimplemented!();
-    }
-
     pub fn get_handle<T: Resource, I: Into<LoadHandle>>(&self, id: I) -> Handle<T> {
         let id:LoadHandle = id.into();
         atelier_loader::handle::Handle::<T>::new(self.ref_op_tx.clone(), id).into()
@@ -172,7 +168,7 @@ impl AssetServer {
     }
 
     pub fn get_handle_path<H: Into<LoadHandle>>(&self, handle: H) -> Option<IndirectIdentifier> {
-        unimplemented!();
+        unimplemented!("Blocked by https://github.com/amethyst/atelier-assets/issues/77, but why do you want this? Could you please open an issue describing your usecase, thanks.");
     }
 
     pub fn load<T: Resource, P: ToString>(&self, path: P) -> Handle<T> {
@@ -181,7 +177,6 @@ impl AssetServer {
 
     pub fn load_untyped<P: Into<IndirectIdentifier>>(&self, path: P) -> GenericHandle {
         let handle = self.loader.add_ref_indirect(path.into());
-        println!("loading: {:?}", handle);
         atelier_loader::handle::GenericHandle::new(self.ref_op_tx.clone(), handle)
     }
 
@@ -189,7 +184,7 @@ impl AssetServer {
         &self,
         path: P,
     ) -> Result<Vec<GenericHandle>, AssetServerError> {
-        unimplemented!();
+        unimplemented!("Waiting on the ability to load directories in atelier");
     }
 
     pub fn free_unused_assets(&self) {
