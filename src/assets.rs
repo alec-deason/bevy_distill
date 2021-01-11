@@ -1,11 +1,12 @@
 use crate::{
     update_asset_storage_system, AssetChannel, AssetLoader, AssetServer, AssetTypeRegistry,
-    ChannelAssetHandler,
+    ChannelAssetHandler, HANDLE_ALLOCATOR,
 };
 use atelier_importer::BoxedImporter;
 use atelier_loader::{
-    handle::{AssetHandle, GenericHandle, Handle},
-    storage::{IndirectionTable, LoadHandle},
+    handle::{AssetHandle, GenericHandle, Handle, RefOp},
+    storage::{IndirectionTable, LoadHandle, HandleAllocator},
+    crossbeam_channel::{unbounded, Receiver, Sender},
 };
 use bevy_app::{prelude::Events, AppBuilder};
 use bevy_ecs::{FromResources, IntoSystem, ResMut, Resource, Resources};
@@ -32,8 +33,10 @@ struct AssetVersion<T> {
 pub struct Assets<T: Resource> {
     uncommitted: HashMap<LoadHandle, AssetVersion<T>>,
     committed: HashMap<LoadHandle, AssetVersion<T>>,
+    runtime_assets: HashMap<LoadHandle, T>,
     events: Events<AssetEvent<T>>,
     indirection_table: IndirectionTable,
+    ref_op_tx: Sender<RefOp>,
 }
 
 impl<T: Resource> FromResources for Assets<T> {
@@ -42,27 +45,54 @@ impl<T: Resource> FromResources for Assets<T> {
         Assets {
             uncommitted: HashMap::default(),
             committed: HashMap::default(),
+            runtime_assets: HashMap::default(),
             events: Events::default(),
             indirection_table: asset_server.loader.indirection_table(),
+            ref_op_tx: asset_server.ref_op_tx(),
         }
+    }
+}
+
+pub trait RuntimeLoadHandle {
+    fn is_runtime(&self) -> bool;
+    fn set_runtime(&self) -> LoadHandle;
+}
+impl RuntimeLoadHandle for LoadHandle {
+    fn is_runtime(&self) -> bool {
+        (self.0 & (1 << 62)) == 1 << 62
+    }
+
+    fn set_runtime(&self) -> LoadHandle {
+        LoadHandle(self.0 | (1 << 63))
     }
 }
 
 impl<T: Resource> Assets<T> {
     pub fn add(&mut self, asset: T) -> Handle<T> {
-        unimplemented!();
+        // TODO: All these methods need to emit events
+        let load_handle = HANDLE_ALLOCATOR.alloc().set_runtime();
+        self.runtime_assets.insert(load_handle, asset);
+        Handle::<T>::new(self.ref_op_tx.clone(), load_handle).into()
     }
 
     pub fn set(&mut self, handle: &Handle<T>, asset: T) -> Handle<T> {
-        unimplemented!();
+        if handle.load_handle().is_runtime() {
+            self.runtime_assets.insert(handle.load_handle(), asset);
+            handle.clone()
+        } else {
+            // TODO: Is this reasonable behavior? A new handle is issued but the old one remains valid
+            // The atelier managed asset will be dropped if the origonal handle is dropped and that's the last reference.
+            self.add(asset)
+        }
     }
 
-    pub fn set_untracked(&mut self, handle: &Handle<T>, asset: T) {
-        unimplemented!();
+    pub fn set_untracked(&mut self, handle: LoadHandle, asset: T) {
+        self.runtime_assets.insert(handle, asset);
     }
 
     pub fn contains(&self, handle: &Handle<T>) -> bool {
-        unimplemented!();
+        let handle = handle.load_handle();
+        self.runtime_assets.contains_key(&handle) || self.committed.contains_key(&handle)
     }
 
     fn resolve_handle(&self, handle: &Handle<T>) -> Option<LoadHandle> {

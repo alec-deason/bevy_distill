@@ -17,7 +17,6 @@ use atelier_loader::{
 };
 use bevy_ecs::{Res, Resource, Resources};
 use bevy_log::*;
-use crossbeam_channel::TryRecvError;
 use parking_lot::RwLock;
 use std::{
     collections::{HashMap, HashSet},
@@ -161,12 +160,12 @@ impl AssetServer {
 
     pub fn get_handle<T: Resource, I: Into<LoadHandle>>(&self, id: I) -> Handle<T> {
         let id: LoadHandle = id.into();
-        atelier_loader::handle::Handle::<T>::new(self.ref_op_tx.clone(), id).into()
+        Handle::<T>::new(self.ref_op_tx(), id).into()
     }
 
     pub fn get_handle_untyped<I: Into<LoadHandle>>(&self, id: I) -> GenericHandle {
         let id: LoadHandle = id.into();
-        atelier_loader::handle::GenericHandle::new(self.ref_op_tx.clone(), id)
+        GenericHandle::new(self.ref_op_tx(), id)
     }
 
     pub fn get_handle_path<H: Into<LoadHandle>>(&self, handle: H) -> Option<IndirectIdentifier> {
@@ -180,7 +179,7 @@ impl AssetServer {
 
     pub fn load_untyped<P: Into<IndirectIdentifier>>(&self, path: P) -> GenericHandle {
         let handle = self.loader.add_ref_indirect(path.into());
-        atelier_loader::handle::GenericHandle::new(self.ref_op_tx.clone(), handle)
+        atelier_loader::handle::GenericHandle::new(self.ref_op_tx(), handle)
     }
 
     pub fn load_folder<P: AsRef<Path>>(
