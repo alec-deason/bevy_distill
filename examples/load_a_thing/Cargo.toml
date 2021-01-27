@@ -9,7 +9,7 @@ edition = "2018"
 [dependencies]
 bevy = { git = "https://github.com/bevyengine/bevy.git", version = "0.4.0" }
 bevy_atelier = { path = "../.." }
-atelier-loader = { git = "https://github.com/alec-deason/atelier-assets.git" }
+atelier-loader = { git = "https://github.com/alec-deason/atelier-assets.git", branch = "bevy_reflect" }
 
 [features]
 atelier-daemon-headless = []
