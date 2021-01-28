@@ -10,6 +10,8 @@ edition = "2018"
 bevy = { git = "https://github.com/bevyengine/bevy.git", version = "0.4.0" }
 bevy_atelier = { path = "../.." }
 atelier-loader = { git = "https://github.com/alec-deason/atelier-assets.git", branch = "bevy_reflect" }
+serde = "1.0.123"
+type-uuid = "0.1.2"
 
 [features]
 atelier-daemon-headless = []

@@ -5,7 +5,7 @@ use crate::{
 use atelier_importer::BoxedImporter;
 use atelier_loader::{
     handle::{AssetHandle, GenericHandle, Handle, RefOp},
-    storage::{IndirectionTable, LoadHandle, HandleAllocator},
+    storage::{IndirectionTable, LoadHandle, HandleAllocator, IndirectIdentifier},
     crossbeam_channel::{unbounded, Receiver, Sender},
 };
 use bevy_app::{prelude::Events, AppBuilder};
@@ -53,37 +53,16 @@ impl<T: Resource> FromResources for Assets<T> {
     }
 }
 
-pub trait RuntimeLoadHandle {
-    fn is_runtime(&self) -> bool;
-    fn set_runtime(&self) -> LoadHandle;
-}
-impl RuntimeLoadHandle for LoadHandle {
-    fn is_runtime(&self) -> bool {
-        (self.0 & (1 << 62)) == 1 << 62
-    }
-
-    fn set_runtime(&self) -> LoadHandle {
-        LoadHandle(self.0 | (1 << 63))
-    }
-}
-
 impl<T: Resource> Assets<T> {
     pub fn add(&mut self, asset: T) -> Handle<T> {
         // TODO: All these methods need to emit events
-        let load_handle = HANDLE_ALLOCATOR.alloc().set_runtime();
+        let load_handle = HANDLE_ALLOCATOR.alloc();
         self.runtime_assets.insert(load_handle, asset);
         Handle::<T>::new(self.ref_op_tx.clone(), load_handle).into()
     }
 
-    pub fn set(&mut self, handle: &Handle<T>, asset: T) -> Handle<T> {
-        if handle.load_handle().is_runtime() {
-            self.runtime_assets.insert(handle.load_handle(), asset);
-            handle.clone()
-        } else {
-            // TODO: Is this reasonable behavior? A new handle is issued but the old one remains valid
-            // The atelier managed asset will be dropped if the origonal handle is dropped and that's the last reference.
-            self.add(asset)
-        }
+    pub fn set(&mut self, handle: &Handle<T>, asset: T) {
+        self.runtime_assets.insert(handle.load_handle(), asset);
     }
 
     pub fn set_untracked(&mut self, handle: LoadHandle, asset: T) {
@@ -109,32 +88,49 @@ impl<T: Resource> Assets<T> {
     }
 
     pub fn get(&self, handle: &Handle<T>) -> Option<&T> {
-        if let Some(handle) = self.resolve_handle(handle) {
-            let asset = self.committed.get(&handle);
-            if let Some(asset_version) = asset {
-                Some(&asset_version.asset)
+        if let Some(asset) = self.runtime_assets.get(&handle.load_handle()) {
+            Some(asset)
+        } else {
+            if let Some(handle) = self.resolve_handle(handle) {
+                let asset = self.committed.get(&handle);
+                if let Some(asset_version) = asset {
+                    Some(&asset_version.asset)
+                } else {
+                    None
+                }
             } else {
                 None
             }
-        } else {
-            None
         }
     }
 
     pub fn get_mut(&mut self, handle: &Handle<T>) -> Option<&mut T> {
-        if let Some(handle) = self.resolve_handle(handle) {
-            let asset = self.committed.get_mut(&handle);
-            if let Some(asset_version) = asset {
-                Some(&mut asset_version.asset)
+        //TODO: can we avoid doing this unconditionally?
+        let resolved_handle = self.resolve_handle(handle);
+
+        let Self {
+            runtime_assets,
+            committed,
+            ..
+        } = self;
+        if let Some(asset) = runtime_assets.get_mut(&handle.load_handle()) {
+            Some(asset)
+        } else {
+            if let Some(handle) = resolved_handle {
+                let asset = committed.get_mut(&handle);
+                if let Some(asset_version) = asset {
+                    Some(&mut asset_version.asset)
+                } else {
+                    None
+                }
             } else {
                 None
             }
-        } else {
-            None
         }
     }
 
-    pub fn get_handle(&self, handle: &Handle<T>) -> Handle<T> {
+    pub fn get_handle(&self, handle: &IndirectIdentifier) -> Handle<T> {
+        //TODO: Figure out the how to use IndirectIdentifier like AssetPath used to be used
         unimplemented!();
     }
 
@@ -142,8 +138,14 @@ impl<T: Resource> Assets<T> {
         &mut self,
         handle: &Handle<T>,
         insert_fn: impl FnOnce() -> T,
-    ) -> &mut T {
-        unimplemented!();
+    ) -> Result<&mut T, ()> {
+        if self.contains(handle) {
+            self.get_mut(handle).ok_or(())
+        } else {
+            let new_asset = insert_fn();
+            self.set(handle, new_asset);
+            Ok(self.get_mut(handle).unwrap())
+        }
     }
 
     /*
